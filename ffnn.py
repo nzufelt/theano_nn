@@ -3,7 +3,6 @@ Implement a feedforward neural network using theano
 """
 import numpy as np
 import theano
-from theano.nnet import softmax
 import theano.tensor as T
 import pandas as pd
 
@@ -75,7 +74,7 @@ class ffnn(object):
 
         # forward prop
         hidden = T.tanh(x*W1+b1)
-        output = T.softmax(W2*hidden + b2)
+        output = T.nnet.softmax(hidden*W2 + b2)
         prediction = output > 0.5
 
         # cost
@@ -98,4 +97,4 @@ class ffnn(object):
         for i in range(self.epochs):
             pred,err = epoch(X, Y) #note X, Y not x, y
             if i % print_every == 0:
-                print('Error after epoch {}: '.format(i,err))
+                print('Error after epoch {}: {}'.format(i,err))
