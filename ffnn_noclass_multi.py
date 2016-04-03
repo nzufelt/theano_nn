@@ -1,5 +1,8 @@
 """
 Implement a feedforward neural network using theano.
+
+Calling this script, an example:
+$ python ffnn_noclass_multi.py 3 3 7 .01 .01 10000 1000 61
 """
 import numpy as np
 import sys
@@ -10,10 +13,7 @@ import theano.tensor as T
 n_inputs,n_outputs,n_hidden = (int(i) for i in sys.argv[1:4])
 reg,alpha = (float(i) for i in sys.argv[4:6])
 epochs,print_every = (int(i) for i in sys.argv[6:8])
-run_test = bool(sys.argv[8])
-toy_data_size = int(sys.argv[9])
-# old, used to debug
-#n_inputs,n_outputs,n_hidden,reg,alpha,epochs,print_every,run_test_size = 3,1,4,.01,.01,10000,1000,true,23
+toy_data_size = int(sys.argv[8])
 
 # Need to initialize the parameters to a small, random number
 n = 1/(np.sqrt(n_inputs * n_outputs * n_hidden))
@@ -45,14 +45,15 @@ else:
     prediction = np.argmax(output,axis=1)
     crossent = T.nnet.categorical_crossentropy(output,y)
 
-cost = crossent.sum() * ((W1**2).sum()+(W2**2).sum())
+cost = crossent.sum() + reg*((W1**2).sum()+(W2**2).sum())
+
 
 # gradients
 gW1,gb1,gW2,gb2 = T.grad(cost,[W1,b1,W2,b2])
 
 # build theano functions
 epoch = theano.function(inputs = [x,y],
-                        outputs = [output, crossent],
+                        outputs = [output, crossent.sum()],
                         updates = ((W1,W1-alpha*gW1),
                                    (b1,b1-alpha*gb1),
                                    (W2,W2-alpha*gW2),
@@ -69,11 +70,25 @@ else:
     D.append(np.array([I[i] for i in np.random.randint(size=N,
                                                        low=0,
                                                        high=n_outputs)]))
-
-#### TODO: build a predictor and training error calculator, fix crossentropy bug
-
 # train the model
 for i in range(epochs):
     pred,err = epoch(D[0],D[1])
     if i % print_every == 0:
         print('Error after epoch {}: {}'.format(i,err))
+
+# check accuracy
+if n_outputs == 1:
+    preds = predict(D[0]).T[0]
+    wrong = (preds != D[1]).sum()
+else:
+    I = np.identity(n_outputs)
+    preds = np.array([I[i] for i in predict(D[0])])
+    wrong = (preds != D[1]).sum() / 2                      # note the /2
+
+score = (N*1.0 - wrong)/N
+print("Our model made {} errors, for an accuracy of {}".format(wrong, score))
+
+
+
+
+
