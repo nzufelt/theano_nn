@@ -40,21 +40,7 @@ class ffnn(object):
         self.b1 = theano.shared(np.zeros(n_hidden), name='b1')
         self.b2 = theano.shared(np.zeros(n_outputs), name='b2')
 
-        """ With selfs?
-        self.z1 = self.x.dot(self.W1)+self.b1
-        self.hidden = T.tanh(self.z1)
-        self.z2 = self.hidden.dot(self.W2) + self.b2
-        if self.n_outputs == 1:
-            self.output = T.nnet.sigmoid(self.z2)
-            self.prediction = self.output > 0.5
-            self.crossent = -self.y.dot(T.log(self.output)) - (1-self.y).dot(T.log(1-self.output))
-        else:
-            self.output = T.nnet.softmax(self.z2)
-            self.prediction = np.argmax(self.output,axis=1)
-            self.crossent = T.nnet.categorical_crossentropy(self.output,self.y)
-
-        self.cost = self.crossent.sum() + reg*((self.W1**2).sum()+(self.W2**2).sum())
-        """
+        # Feedforward
         z1 = self.X.dot(self.W1)+self.b1
         hidden = T.tanh(z1)
         z2 = hidden.dot(self.W2) + self.b2
