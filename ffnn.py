@@ -97,17 +97,25 @@ class ffnn(object):
 
 
     def training_accuracy(self,X,y):
+        """ Originally, we used the whole of X at once, but this led to
+        memory overflow.  So now we compute it a bit at a time.
+        """
+
         n_samples = len(X)
+        total_wrong = 0 
         if self.n_outputs == 1:
-            preds = self.predict(X).T[0]
-            wrong = (preds != y).sum()
+            for i in range(0,len(X),1000):
+                preds = self.predict(X[i:i+1000,:]).T[0]
+                total_wrong += (preds != y[i:i+1000]).sum()
         else:
             I = np.identity(self.n_outputs)
-            preds = np.array([I[i] for i in self.predict(X)])
-            wrong = (preds != y).sum() / 2                      # note the /2
+            for i in range(0,len(X),1000):
+                preds = np.array([I[i] for i in self.predict(X[i:i+1000,:])])
+                total_wrong = (preds != y[i:i+1000,:]).sum() / 2  # note the /2
 
-        score = (n_samples*1.0 - wrong)/n_samples
-        print("Our model made {} errors, for an accuracy of {}".format(wrong, score))
+        score = (n_samples*1.0 - total_wrong)/n_samples
+        print("Our model made {} errors, for an accuracy of {}".format(total_wrong, 
+                                                                       score))
 
     def _generate_toy_data(self,n_samples):
         """ Used for debugging."""
