@@ -24,5 +24,5 @@ conv_out = conv2d(X,
 f = theano.function([X],[conv_out])
 
 X_data = np.array(rng.randint(low=0,high=256,size=X_shape))  
-conv_out = f([X_data]) 
+conv_out = f(X_data) 
 

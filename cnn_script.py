@@ -20,7 +20,9 @@ from theano.tensor.nnet import relu,conv2d
 # For the whole network
 reg,alpha = .01,.01 #(float(i) for i in sys.argv[4:6])
 minibatch = 200 #(int(i) for i in sys.argv[1:4])
-epochs,print_every = 100,10 #(int(i) for i in sys.argv[6:8])
+n_samples = 42000
+n_channels = 1 # greyscale
+epochs,print_every = 10,1#100,10 #(int(i) for i in sys.argv[6:8])
 # For the convolutional layer
 image_height,image_width = 28,28
 filter_height,filter_width = 3,3 
@@ -36,16 +38,17 @@ n = 1/(np.sqrt(n_inputs))
 
 # Input and training values
 X = T.tensor4(name='X')
-X_shape = (minibatch,1,image_height,image_width)  # 1 ==> greyscale
+X_shape = (minibatch,n_channels,image_height,image_width)
 y = T.dmatrix('y') # one-hot vectors
 
 # Convolution layer
-W_shape = (n_filters,1,filter_height,filter_width) # 1's ==> greyscale
+W_shape = (n_filters,n_channels,filter_height,filter_width)
 W_conv = theano.shared(n*rng.randn(*W_shape),
                        name='W_conv')
-conv_out_layer = conv2d(X, W_conv,
+conv_out_layer = conv2d(X, 
+                        W_conv,
                         input_shape=X_shape,
-                        filter_shape=None,#W_shape,
+                        filter_shape=W_shape,
                         border_mode='valid')
 # Note:
 # output_shape = (minibatch, 1, output_rows, output_columns)
@@ -60,21 +63,12 @@ pooled_out = pool_2d(input=conv_out_layer,
 # Implement the bias term and nonlinearity
 b_conv = theano.shared(np.zeros(n_filters,), name='b_conv')
 conv_out = relu(pooled_out + b_conv.dimshuffle('x',0,'x','x'))
-
-#TODO: check that the output of conv_out is the right dimension
-#          reshape to being one-dimensional, stitch into z1
-###### NOTE: this is bugged at the moment, conv2d is prepending a dimension to my X_data
-conv_out_flat = conv_out.flatten()
-
-f = theano.function([X],[conv_out_layer,conv_out,pooled_out])
-
-
-"""DEBUG: disconnect the layers
+#conv_out_flat = conv_out.reshape(minibatch,n_inputs)
+conv_out_flat = conv_out.flatten(2)
 
 # Fully-connected layers
 W1_full = theano.shared(n*rng.randn(n_inputs,n_hidden), name='W1_full')
 b1_full = theano.shared(np.zeros(n_hidden), name='b1_full')
-
 W2_full = theano.shared(n*rng.randn(n_hidden,n_outputs), name='W2_full')
 b2_full = theano.shared(np.zeros(n_outputs), name='b2_full')
 
@@ -97,45 +91,35 @@ epoch = theano.function(inputs = [X,y],
                         outputs = [output, cost],
                         updates = updates)
 predict = theano.function(inputs=[X],outputs=prediction)
-"""
+
 # Read in MNIST data
-train_df = pd.read_csv('train.csv')[0:200]
+train_df = pd.read_csv('train.csv')
 X_data = train_df.values
 del train_df # free up some memory
 I = np.identity(10)
 y_data = np.array([I[i] for i in X_data.T[0].T]) # one-hot the y's
 # strip off response variable and make into a 4-tensor:
-X_data = np.reshape(X_data.T[1:].T,(minibatch,1,image_height,image_width))  
-
-print(X_data.shape)
-cout_layer,cout,pout = f([X_data]) 
-
-
-"""" DEBUG
+X_data = np.reshape(X_data.T[1:].T,(n_samples,n_channels,image_height,image_width))  
+ 
 # Give the data mean 0:
 X_data = X_data.astype(float)
 X_data -= 128.0
-L = X_data.shape[0]
 
 # train the model
 for i in range(epochs):
-    for ind in range(0,L,minibatch):
-        rows = list(range(ind,min(ind+minibatch,L+1)))
-        pred,err = epoch(X_data[rows,:],y_data[rows,:])
-        if i % print_every == 0:
-            print('Error after epoch {}: {}'.format(i,err))
-"""
-# TODO: some kind of accuracy testing
-"""
-OLD:
-if n_outputs == 1:
-    preds = predict(D[0]).T[0]
-    wrong = (preds != D[1]).sum()
-else:
-    I = np.identity(n_outputs)
-    preds = np.array([I[i] for i in predict(D[0])])
-    wrong = (preds != D[1]).sum() / 2                      # note the /2
+    for ind in range(0,n_samples,minibatch):
+        rows = list(range(ind,min(ind+minibatch,n_samples+1)))
+        pred,err = epoch(X_data[rows],y_data[rows])
+    if i % print_every == 0:
+        #print('Error after epoch {}: {}'.format(i,err))
+        print('Completed epoch ' + str(i))
 
-score = (N*1.0 - wrong)/N
+# Accuracy testing
+wrong = 0
+I = np.identity(n_outputs)
+for ind in range(0,n_samples,minibatch):
+    rows = list(range(ind,min(ind+minibatch,n_samples+1)))
+    preds = np.array([I[i] for i in predict(X_data[rows])])
+    wrong += (preds != y[rows]).sum() / 2  
+score = (n_samples*1.0 - wrong)/n_samples
 print("Our model made {} errors, for an accuracy of {}".format(wrong, score))
-"""
